@@ -1,5 +1,8 @@
 # C05：Six Sigma / 製程能力分析
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 Six Sigma 是以**統計方法消除製程變異**的改善方法論，

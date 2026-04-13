@@ -1,5 +1,8 @@
 # 第二章　瓶頸分析：Theory of Constraints (TOC)
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 木桶能裝多少水，由最短的那片板子決定——這就是 **Theory of Constraints（TOC，制約理論）** 的核心直覺。管理學家 Eliyahu Goldratt 在 1984 年的著作《目標》(The Goal) 中，將這個概念系統化為生產管理方法論。

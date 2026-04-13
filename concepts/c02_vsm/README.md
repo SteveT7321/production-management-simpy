@@ -1,5 +1,8 @@
 # C02：Value Stream Mapping（VSM）價值流圖分析
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 VSM 是精實製造的**靜態分析工具**，用於繪製從「訂單到出貨」的完整流程，

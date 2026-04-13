@@ -1,5 +1,8 @@
 # 第四章　快速換線：SMED（Single Minute Exchange of Die）
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 **換線（Changeover）** 是指生產線從生產某一機種切換到另一機種的過程，期間設備停止生產、人員進行調整作業。換線時間越長，代表設備的「有效生產時間」越短。

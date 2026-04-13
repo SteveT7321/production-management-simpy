@@ -1,5 +1,8 @@
 # 第五章　品質管理：FPY 串聯計算與 Rework Loop
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 **FPY（First Pass Yield，首次通過良率）** 是衡量一個製程「一次就做對」的機率，是品質管理中最基本的指標。

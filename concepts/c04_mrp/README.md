@@ -1,5 +1,8 @@
 # C04：MRP 物料需求計畫
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 MRP（Material Requirements Planning）解決「**什麼時候需要多少料？**」，

@@ -1,5 +1,8 @@
 # 第八章　生產排程規則：FIFO / SPT / EDD
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 當多種訂單同時在等待加工時，**排程規則（Scheduling Rule）**決定誰先被服務。  

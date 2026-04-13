@@ -1,5 +1,8 @@
 # C06：AQL 抽樣計畫
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 AQL（Acceptable Quality Level）定義**可接受的最大平均不良率**，

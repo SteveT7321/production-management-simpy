@@ -1,5 +1,8 @@
 # 第十二章　CONWIP vs 逐站 Kanban
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 第六章介紹了**系統級 WIP 上限**——一張全域卡片控制整條線的在製品數量，  

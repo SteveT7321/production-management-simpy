@@ -1,5 +1,8 @@
 # C03：EOQ 經濟訂購量
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 EOQ（Economic Order Quantity）是庫存管理的基礎公式，

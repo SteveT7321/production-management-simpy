@@ -1,5 +1,8 @@
 # 第三章　整體設備效率：OEE（Overall Equipment Effectiveness）
 
+![preview](preview.gif)
+
+
 ## 概念說明
 
 OEE 是衡量設備「真正創造價值時間」佔總計畫工時的百分比，由豐田生產系統（TPS）發展而來，現為 **SEMI E10** 國際標準，是製造業通用的設備健康指標。
