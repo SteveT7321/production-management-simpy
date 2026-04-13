@@ -77,8 +77,8 @@ class Machine:
 
         self._state_callback = state_callback
 
-        # 啟動背景故障程序
-        env.process(self._failure_process())
+        # 啟動背景故障程序（保留引用供 PM interrupt 使用）
+        self._failure_gen_process = env.process(self._failure_process())
 
     # ── 狀態管理 ──────────────────────────────────────────────────
 
@@ -162,13 +162,21 @@ class Machine:
     # ── 故障流程 ──────────────────────────────────────────────────
 
     def _failure_process(self):
-        """背景常駐：指數分佈 MTBF/MTTR 隨機故障循環"""
+        """背景常駐：指數分佈 MTBF/MTTR 隨機故障循環
+        若被 PM interrupt：
+          - 在 TTF 等待期間：重置計時器（PM 預防了這次故障）
+          - 在修復等待期間：直接忽略（修復不被 PM 中斷）
+        """
         while True:
-            # 正常運行直到下次故障
-            ttf = random.expovariate(1.0 / self.config.mtbf)
-            yield self.env.timeout(ttf)
+            # ── 等待下次故障 ──
+            try:
+                ttf = random.expovariate(1.0 / self.config.mtbf)
+                yield self.env.timeout(ttf)
+            except simpy.Interrupt:
+                # PM 重置 TTF 計時器：本次故障被預防，重新等待
+                continue
 
-            # 發生故障
+            # ── 發生故障 ──
             self._is_down = True
             self.stats.failure_count += 1
             self.status = MachineStatus.DOWN
@@ -178,7 +186,12 @@ class Machine:
                 self.config.mttr_mean,
                 self.config.mttr_std
             ))
-            yield self.env.timeout(ttr)
+
+            try:
+                yield self.env.timeout(ttr)
+            except simpy.Interrupt:
+                # PM interrupt 在修復期間到來：忽略，繼續完成修復
+                pass
 
             self.stats.down_time += self.env.now - down_start
             self._is_down = False

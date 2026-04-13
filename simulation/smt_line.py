@@ -54,7 +54,20 @@ class SMTLine:
         enable_maintenance: bool = False,
     ):
         self.env = simpy.Environment()
-        self.machine_configs = machine_configs or MACHINE_CONFIGS
+        _base_configs = machine_configs or MACHINE_CONFIGS
+
+        # PM 效果：MTBF 提升 2x（PM 讓設備壽命加倍，故障次數減半）
+        # 計畫性保養停機時間由 _pm_process 另行累計
+        PM_MTBF_FACTOR = 2.0
+        if enable_maintenance:
+            import copy as _copy
+            self.machine_configs = {
+                name: MachineConfig(**{**cfg.__dict__, "mtbf": cfg.mtbf * PM_MTBF_FACTOR})
+                for name, cfg in _base_configs.items()
+            }
+        else:
+            self.machine_configs = _base_configs
+
         self.line_config = line_config or LINE_CONFIG.copy()
         self.state_callback = state_callback
 
@@ -68,13 +81,12 @@ class SMTLine:
             for name, cfg in self.machine_configs.items()
         }
 
-        # Kanban containers（每站 WIP 上限）
-        self._kanban_containers: Dict[str, simpy.Container] = {}
+        # Kanban：系統級 WIP 上限（進板前須取得許可，出板後釋放）
+        self._system_kanban: Optional[simpy.Container] = None
         if self.enable_kanban:
-            for name in STATION_ORDER:
-                self._kanban_containers[name] = simpy.Container(
-                    self.env, capacity=self.kanban_limit, init=self.kanban_limit
-                )
+            self._system_kanban = simpy.Container(
+                self.env, capacity=self.kanban_limit, init=self.kanban_limit
+            )
 
         self.stats = LineStats(
             sim_duration=self.line_config["sim_duration"],
@@ -123,18 +135,28 @@ class SMTLine:
         return self.stats
 
     def _pcb_generator(self, verbose: bool):
-        """依 inter-arrival 時間持續產生 PCB 進板"""
+        """依 inter-arrival 時間持續產生 PCB 進板
+        若啟用 Kanban，進板前須等待系統有空位（Pull 系統）
+        """
         while True:
             iat = random.expovariate(
                 1.0 / self.line_config["inter_arrival_mean"]
             )
             yield self.env.timeout(iat)
 
+            # Kanban Pull：等待系統空位，超過 WIP 上限則阻塞
+            kanban_wait = 0.0
+            if self._system_kanban is not None:
+                wait_start = self.env.now
+                yield self._system_kanban.get(1)
+                kanban_wait = self.env.now - wait_start
+
             self._pcb_counter += 1
             pcb = PCB(
                 pcb_id=self._pcb_counter,
                 arrival_time=self.env.now,
             )
+            pcb.kanban_wait_time = kanban_wait
 
             with self._wip_lock:
                 self._wip_count += 1
@@ -150,13 +172,6 @@ class SMTLine:
             if machine is None:
                 continue
 
-            # Kanban：等待下游空位
-            if self.enable_kanban and station_name in self._kanban_containers:
-                kanban = self._kanban_containers[station_name]
-                wait_start = self.env.now
-                yield kanban.get(1)
-                pcb.kanban_wait_time += self.env.now - wait_start
-
             pcb.record_enter(station_name, self.env.now)
             yield machine.process(pcb)
             pcb.record_exit(station_name, self.env.now)
@@ -169,7 +184,6 @@ class SMTLine:
                 if verbose:
                     print(f"  [t={self.env.now:.0f}] PCB#{pcb.pcb_id} SPI 攔截，返回印刷")
                 yield from self._rework_flow(pcb, "screen_printer", verbose)
-                # 重置不良旗標並繼續
                 pcb.is_defect = False
 
             # AOI 攔截：回焊後不良品分流
@@ -190,11 +204,10 @@ class SMTLine:
                     )
                     yield from self._rework_flow(pcb, rework_station, verbose)
 
-            # Kanban：加工完畢，釋放上游空位
-            if self.enable_kanban and station_name in self._kanban_containers:
-                yield self._kanban_containers[station_name].put(1)
+        # 完工：釋放 Kanban 許可讓下一片進板
+        if self._system_kanban is not None:
+            yield self._system_kanban.put(1)
 
-        # 完工
         pcb.finish_time = self.env.now
         with self._wip_lock:
             self._wip_count -= 1
@@ -230,19 +243,36 @@ class SMTLine:
     def _pm_process(self, machine: Machine):
         """
         定期預防保養程序
-        PM 間隔 = MTBF * 0.8（在故障前先保養）
+        PM 間隔 = MTBF × 0.8（在故障前先介入）
+
+        PM 效果建模方式：
+          - 機台 MTBF 已在 __init__ 乘以 pm_mtbf_factor（預設 2x）
+            → 直接反映「PM 讓設備壽命加倍、故障次數減半」
+          - 本程序僅負責計畫性停機時間（佔 MTTR × 0.3）
+            → 反映 PM 的「計畫性成本」
         """
         pm_interval = machine.config.mtbf * 0.8
-        pm_duration = machine.config.mttr_mean * 0.5   # PM 比故障修復快一半
+        pm_duration = machine.config.mttr_mean * 0.3   # PM 比緊急修復快（約 30% MTTR）
 
         while True:
             yield self.env.timeout(pm_interval)
-            if not machine._is_down:
-                machine.status = MachineStatus.CHANGEOVER  # 借用 changeover 狀態表示 PM
-                pm_start = self.env.now
-                yield self.env.timeout(pm_duration)
-                machine.stats.changeover_time += self.env.now - pm_start
-                machine.status = MachineStatus.IDLE
+
+            # 若目前正在故障修復中，跳過此次 PM
+            if machine._is_down:
+                continue
+
+            # 計畫性停機：阻塞機台加工
+            machine._is_down = True
+            machine.status = MachineStatus.CHANGEOVER
+            pm_start = self.env.now
+
+            yield self.env.timeout(pm_duration)
+
+            machine.stats.changeover_time += self.env.now - pm_start
+            machine._is_down = False
+            machine.repair_event.succeed()
+            machine.repair_event = machine.env.event()
+            machine.status = MachineStatus.IDLE
 
 
 # ── 獨立執行入口 ────────────────────────────────────────────────────
