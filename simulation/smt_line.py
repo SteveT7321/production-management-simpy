@@ -52,6 +52,8 @@ class SMTLine:
         enable_kanban: bool = False,
         kanban_limit: Optional[int] = None,
         enable_maintenance: bool = False,
+        enable_station_kanban: bool = False,
+        station_kanban_limit: Optional[int] = None,
     ):
         self.env = simpy.Environment()
         _base_configs = machine_configs or MACHINE_CONFIGS
@@ -92,6 +94,15 @@ class SMTLine:
             sim_duration=self.line_config["sim_duration"],
             warmup_time=self.line_config["warmup_time"],
         )
+
+        # 逐站 Kanban：每站獨立 WIP 上限（ch12 用）
+        self._station_kanban: Dict[str, simpy.Container] = {}
+        if enable_station_kanban:
+            s_limit = station_kanban_limit or 10
+            for station in STATION_ORDER:
+                self._station_kanban[station] = simpy.Container(
+                    self.env, capacity=s_limit, init=s_limit
+                )
 
         self._wip_count = 0
         self._wip_lock = threading.Lock()
@@ -150,6 +161,13 @@ class SMTLine:
                 wait_start = self.env.now
                 yield self._system_kanban.get(1)
                 kanban_wait = self.env.now - wait_start
+            elif self._station_kanban:
+                # 逐站 Kanban：在進板前先預取第一站的 slot
+                # 確保 _wip_count 只計「已進入系統」的 PCB
+                first_station = STATION_ORDER[0]
+                wait_start = self.env.now
+                yield self._station_kanban[first_station].get(1)
+                kanban_wait = self.env.now - wait_start
 
             self._pcb_counter += 1
             pcb = PCB(
@@ -172,9 +190,18 @@ class SMTLine:
             if machine is None:
                 continue
 
+            # 逐站 Kanban：進站前等待空位
+            # （第一站已在 _pcb_generator 中預取，此處跳過）
+            if self._station_kanban and station_name != STATION_ORDER[0]:
+                yield self._station_kanban[station_name].get(1)
+
             pcb.record_enter(station_name, self.env.now)
             yield machine.process(pcb)
             pcb.record_exit(station_name, self.env.now)
+
+            # 逐站 Kanban：離站後釋放空位
+            if self._station_kanban:
+                yield self._station_kanban[station_name].put(1)
 
             # SPI 攔截：印刷不良直接返印（不繼續往下）
             if station_name == "spi" and pcb.is_defect:
@@ -225,9 +252,13 @@ class SMTLine:
             machine = self.machines.get(station_name)
             if machine is None:
                 continue
+            if self._station_kanban:
+                yield self._station_kanban[station_name].get(1)
             pcb.record_enter(f"{station_name}_rework", self.env.now)
             yield machine.process(pcb)
             pcb.record_exit(f"{station_name}_rework", self.env.now)
+            if self._station_kanban:
+                yield self._station_kanban[station_name].put(1)
 
     # ── WIP 取樣（Little's Law）────────────────────────────────────
 

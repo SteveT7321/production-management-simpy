@@ -86,6 +86,11 @@ SMTLine.run()
 | [第五章](chapters/ch05_quality/) | FPY 串聯計算、Rework Loop | 不良率如何影響整線？ |
 | [第六章](chapters/ch06_kanban/) | Kanban、Push vs Pull | 如何控制在製品數量？ |
 | [第七章](chapters/ch07_maintenance/) | PM 預防保養 vs 故障停機 | 預防保養划算嗎？ |
+| [第八章](chapters/ch08_scheduling/) | FIFO / SPT / EDD 排程規則 | 哪一片訂單先做效益最高？ |
+| [第九章](chapters/ch09_heijunka/) | Heijunka 均衡生產 | 如何讓產線節拍穩定？ |
+| [第十章](chapters/ch10_safety_stock/) | 安全庫存、再訂購點（ROP） | 要備多少料才不會斷線？ |
+| [第十一章](chapters/ch11_spc/) | SPC p 管制圖、製程漂移偵測 | 製程悄悄變差時如何第一時間發現？ |
+| [第十二章](chapters/ch12_conwip/) | CONWIP vs 逐站 Kanban | 全域 WIP 上限和逐站限制有什麼不同？ |
 
 每個章節資料夾：
 
@@ -113,6 +118,11 @@ python chapters/ch04_smed/simulation.py
 python chapters/ch05_quality/simulation.py
 python chapters/ch06_kanban/simulation.py
 python chapters/ch07_maintenance/simulation.py
+python chapters/ch08_scheduling/simulation.py
+python chapters/ch09_heijunka/simulation.py
+python chapters/ch10_safety_stock/simulation.py
+python chapters/ch11_spc/simulation.py
+python chapters/ch12_conwip/simulation.py
 
 # 快速驗證整條產線（輸出基礎統計，確認環境設定正確）
 python check.py
@@ -195,6 +205,56 @@ B: 有 PM（MTBF×0.8）   9        109 pcs/hr     90 pcs
 ```
 → PM 使故障減少 57%，產出率 ＋6.9 pcs/hr
 
+### 第八章　排程規則（FIFO / SPT / EDD）
+
+```
+情境    整體準時率   平均延誤(s)   最大延誤(s)   平均流程時間(s)
+FIFO      84.5%         9.9          240.0          62.4
+SPT       92.5%        10.4         1058.0          50.8  ← 流程時間最短（C 型犧牲）
+EDD       86.6%         8.6          223.3          60.1  ← 最大延誤最小
+```
+→ SPT 最小化平均等待；EDD 最小化最大延誤；FIFO 公平但兩者皆非最優
+
+### 第九章　Heijunka 均衡生產（需求 80 pcs/hr）
+
+```
+情境                   產出率     平均WIP   WIP標準差   WIP峰值   CT標準差
+A: 批量（每小時集中）   77 pcs/hr   36.9      28.1        82        841 s
+B: Heijunka 均衡       77 pcs/hr   14.4       8.6        31        397 s
+```
+→ WIP 標準差 -69%，CT 標準差 -53%；產出率不變，流動更穩定
+
+### 第十章　安全庫存（補料 Lead Time = 30 min）
+
+```
+情境                      斷料次數   斷料停機   產出率
+A: 無安全庫存（ROP=0）       5次     148 min   77 pcs/hr
+B: 安全庫存 1x LTD            1次       3 min  100 pcs/hr
+C: 安全庫存 2x LTD            0次       0 min  102 pcs/hr
+```
+→ 安全庫存 2x Lead Time Demand 可消除斷料停機
+
+### 第十一章　SPC 管制圖（chip_shooter 不良率漂移 25x）
+
+```
+情境                      FPY%    產出率
+A: 無漂移（基準）           99.02%   102
+B: 有漂移，無 SPC           95.55%    93  ← 問題惡化無人知
+C: 有漂移，SPC(n=20)        98.74%   102  ← SPC 偵測並重校
+```
+→ 製程漂移導致 FPY 下降 3.5%；SPC 在 ~4 分鐘內偵測並重校，FPY 幾乎恢復
+
+### 第十二章　CONWIP vs 逐站 Kanban
+
+```
+情境                       平均WIP   WIP降幅   CT降幅    產出率
+A: Push（無限制）            101        —         —       102
+B: CONWIP（上限=50）          47      -53%      -50%      102  ← 推薦起點
+C: 逐站 Kanban（每站=10）     77      -24%      -21%       98  ← 略緊
+D: 逐站 Kanban（每站=15）     99       -2%       -4%      103  ← 幾乎無效
+```
+→ CONWIP 實作最簡單且效果最好；逐站 Kanban 提供局部可視性但設定複雜
+
 ---
 
 ## 專案結構
@@ -206,12 +266,17 @@ warehouse_omniverse/
 │   ├── ch01_takt_time/
 │   │   ├── README.md          概念、公式、結果解讀、管理意涵
 │   │   └── simulation.py      import 核心引擎，設定情境參數，輸出比較表
-│   ├── ch02_bottleneck/
-│   ├── ch03_oee/
-│   ├── ch04_smed/
-│   ├── ch05_quality/
-│   ├── ch06_kanban/
-│   └── ch07_maintenance/
+│   ├── ch02_bottleneck/       TOC 瓶頸理論
+│   ├── ch03_oee/              OEE 三維分解
+│   ├── ch04_smed/             SMED 快速換線
+│   ├── ch05_quality/          FPY 串聯計算
+│   ├── ch06_kanban/           Kanban Push vs Pull
+│   ├── ch07_maintenance/      PM 預防保養
+│   ├── ch08_scheduling/       FIFO / SPT / EDD 排程規則
+│   ├── ch09_heijunka/         Heijunka 均衡生產
+│   ├── ch10_safety_stock/     安全庫存 / ROP 再訂購點
+│   ├── ch11_spc/              SPC p 管制圖 / 製程漂移偵測
+│   └── ch12_conwip/           CONWIP vs 逐站 Kanban
 │
 ├── simulation/                核心模擬引擎（被 chapters 共用）
 │   ├── config.py              機台參數（Yamaha/Fuji 業界規格）
