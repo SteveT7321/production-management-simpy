@@ -1,7 +1,7 @@
 # SMT 生產管理模擬教學
 
 以 **SimPy 離散事件模擬（DES）** 建構的 SMT 電子組裝線數位孿生，  
-涵蓋 7 個生產管理核心知識點，每個章節包含概念說明、公式推導、模擬實驗與結果解讀。
+涵蓋 **12 個模擬章節** + **6 個靜態分析工具**，每個章節包含概念說明、公式推導、模擬實驗與結果解讀。
 
 ---
 
@@ -102,6 +102,24 @@ chapters/ch0N_xxx/
 
 ---
 
+## 靜態分析工具（concepts/）
+
+有些生產管理知識用公式就能算清楚，不需要 SimPy 模擬。
+這類工具獨立放在 `concepts/` 目錄，執行後輸出計算結果與管理意涵。
+
+| 目錄 | 主題 | 核心方法 |
+|------|------|---------|
+| [c01_5s](concepts/c01_5s/) | 5S 評核工具 | 分數 → 效率影射 |
+| [c02_vsm](concepts/c02_vsm/) | VSM 價值流圖分析 | PCE = VA / Lead Time |
+| [c03_eoq](concepts/c03_eoq/) | EOQ 經濟訂購量 | sqrt(2DS/H) |
+| [c04_mrp](concepts/c04_mrp/) | MRP 物料需求計畫 | BOM 展開 + 淨需求計算 |
+| [c05_six_sigma](concepts/c05_six_sigma/) | Six Sigma 製程能力 | Cp / Cpk / DPMO |
+| [c06_aql](concepts/c06_aql/) | AQL 抽樣計畫 | ANSI Z1.4 + OC 曲線 |
+
+詳細說明：[concepts/README.md](concepts/README.md)
+
+---
+
 ## 快速開始
 
 ```bash
@@ -123,6 +141,14 @@ python chapters/ch09_heijunka/simulation.py
 python chapters/ch10_safety_stock/simulation.py
 python chapters/ch11_spc/simulation.py
 python chapters/ch12_conwip/simulation.py
+
+# 靜態分析工具（不需要 SimPy）
+python concepts/c01_5s/calculator.py
+python concepts/c02_vsm/calculator.py
+python concepts/c03_eoq/calculator.py
+python concepts/c04_mrp/calculator.py
+python concepts/c05_six_sigma/calculator.py
+python concepts/c06_aql/calculator.py
 
 # 快速驗證整條產線（輸出基礎統計，確認環境設定正確）
 python check.py
@@ -284,6 +310,15 @@ warehouse_omniverse/
 │   ├── pcb.py                 PCB 生命週期紀錄
 │   ├── smt_line.py            主產線 SimPy 流程（含 Kanban / PM）
 │   └── statistics.py          OEE / Throughput / WIP / Little's Law
+│
+├── concepts/                  靜態分析工具（公式計算，不需要 SimPy）
+│   ├── README.md              各工具說明與學習路徑
+│   ├── c01_5s/                5S 評核評分工具
+│   ├── c02_vsm/               VSM 價值流圖 PCE 計算
+│   ├── c03_eoq/               EOQ 經濟訂購量
+│   ├── c04_mrp/               MRP 物料需求計畫（BOM 展開）
+│   ├── c05_six_sigma/         Cp / Cpk / DPMO / Sigma Level
+│   └── c06_aql/               AQL 抽樣計畫 + OC 曲線
 │
 ├── tests/
 │   └── test_simulation.py     單元測試（8 項，驗證核心引擎邏輯）
